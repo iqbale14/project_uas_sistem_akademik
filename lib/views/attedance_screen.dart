@@ -1,10 +1,27 @@
 import 'dart:io';
+
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:latlong2/latlong.dart';
+
 import '../data/local/db_academic.dart';
 
-class AttendanceScreen extends StatefulWidget {
+File? _imageFile;
+Position? _currentPosition;
+
+bool _isLoadingLocation = false;
+
+final double _targetLatitude = -6.253288;
+final double _targetLongitude = 107.003105;
+
+final double _maxRadiusInMeters = 100;
+
+double _distance = 0;
+
   const AttendanceScreen({super.key});
 
   @override
@@ -19,11 +36,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Position? _currentPosition;
   bool _isLoadingLocation = false;
   
-  // Koordinat Kampus Dummy (contoh: Monas Jakarta)
-  // Mahasiswa harus berada di dekat sini untuk presensi sukses
-  final double _targetLatitude = -6.175392;
-  final double _targetLongitude = 106.827153;
-  final double _maxRadiusInMeters = 100.0; // Maksimal jarak 100 meter
+final double _targetLatitude = -6.253288;
+final double _targetLongitude = 107.003105;
+final double _maxRadiusInMeters = 100.0;
 
   // Poin 8: Fitur Kamera untuk mengambil foto selfie
   Future<void> _takeSelfie() async {
@@ -57,6 +72,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Layanan lokasi (GPS) Anda belum aktif!')),
       );
+      _distance = Geolocator.distanceBetween(
+  position.latitude,
+  position.longitude,
+  _targetLatitude,
+  _targetLongitude,
+);
       setState(() => _isLoadingLocation = false);
       return;
     }
@@ -168,6 +189,12 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   @override
+  void dispose() {
+    _subjectController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -242,40 +269,159 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
               const SizedBox(height: 16),
 
               // Bagian GPS (Poin 9)
-              Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'Verifikasi GPS Koordinat',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      const SizedBox(height: 12),
-                      _isLoadingLocation
-                          ? const CircularProgressIndicator()
-                          : _currentPosition == null
-                              ? const Text('Koordinat GPS belum dideteksi.', style: TextStyle(color: Colors.grey))
-                              : Column(
-                                  children: [
-                                    Text('Latitude: ${_currentPosition!.latitude}'),
-                                    Text('Longitude: ${_currentPosition!.longitude}'),
-                                  ],
-                                ),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        onPressed: _getCurrentLocation,
-                        icon: const Icon(Icons.my_location),
-                        label: const Text('Dapatkan Lokasi Sekarang'),
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                      ),
-                    ],
-                  ),
+             Card(
+  elevation: 3,
+  shape: RoundedRectangleBorder(
+    borderRadius: BorderRadius.circular(15),
+  ),
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: Column(
+      children: [
+
+        const Text(
+          "Verifikasi GPS",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+
+        const SizedBox(height: 15),
+
+        ElevatedButton.icon(
+          onPressed: _getCurrentLocation,
+          icon: const Icon(Icons.location_searching),
+          label: const Text("Ambil Lokasi"),
+        ),
+
+        const SizedBox(height: 15),
+
+        if (_isLoadingLocation)
+          const CircularProgressIndicator(),
+
+        if (_currentPosition != null) ...[
+
+          SizedBox(
+            height: 250,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: LatLng(
+                  _currentPosition!.latitude,
+                  _currentPosition!.longitude,
                 ),
+                initialZoom: 18,
               ),
-              const SizedBox(height: 30),
+              children: [
+
+                TileLayer(
+                  urlTemplate:
+                      "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                  userAgentPackageName: "com.example.presensi",
+                ),
+
+                CircleLayer(
+                  circles: [
+                    CircleMarker(
+                      point: LatLng(
+                        _targetLatitude,
+                        _targetLongitude,
+                      ),
+                      radius: _maxRadiusInMeters,
+                      useRadiusInMeter: true,
+                      color: Colors.green.withOpacity(.25),
+                      borderColor: Colors.green,
+                      borderStrokeWidth: 2,
+                    ),
+                  ],
+                ),
+
+                MarkerLayer(
+                  markers: [
+
+                    Marker(
+                      point: LatLng(
+                        _targetLatitude,
+                        _targetLongitude,
+                      ),
+                      child: const Icon(
+                        Icons.school,
+                        size: 40,
+                        color: Colors.blue,
+                      ),
+                    ),
+
+                    Marker(
+                      point: LatLng(
+                        _currentPosition!.latitude,
+                        _currentPosition!.longitude,
+                      ),
+                      child: const Icon(
+                        Icons.person_pin_circle,
+                        size: 45,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          Text(
+            "Latitude : ${_currentPosition!.latitude}",
+          ),
+
+          Text(
+            "Longitude : ${_currentPosition!.longitude}",
+          ),
+
+          Text(
+            "Akurasi : ${_currentPosition!.accuracy.toStringAsFixed(1)} meter",
+          ),
+
+          Text(
+            "Jarak ke Kampus : ${_distance.toStringAsFixed(1)} meter",
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          Chip(
+            backgroundColor:
+                _distance <= _maxRadiusInMeters
+                    ? Colors.green
+                    : Colors.red,
+            label: Text(
+              _distance <= _maxRadiusInMeters
+                  ? "✓ Dalam Radius"
+                  : "✗ Di Luar Radius",
+              style: const TextStyle(
+                color: Colors.white,
+              ),
+            ),
+          )
+        ]
+      ],
+    ),
+  ),
+),
+
+              const SizedBox(height: 12),
+
+ElevatedButton.icon(
+  onPressed: _getCurrentLocation,
+  icon: const Icon(Icons.my_location),
+  label: const Text('Dapatkan Lokasi Sekarang'),
+  style: ElevatedButton.styleFrom(
+    backgroundColor: Colors.blue,
+    foregroundColor: Colors.white,
+  ),
+),
 
               // Tombol Submit Utama
               ElevatedButton(
