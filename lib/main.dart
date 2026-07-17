@@ -1,9 +1,5 @@
-import 'dart:io' show Platform;
-
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-// removed desktop-only sqflite_common_ffi import (using SharedPreferences now)
 import 'views/login_screen.dart';
 
 Future<void> main() async {

@@ -1,10 +1,5 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 class ApiService {
   Future<List<dynamic>> fetchAnnouncements() async {
-    // Membaca token dari .env (tetap mempertahankan poin Security API Call untuk UAS)
-    final String token = dotenv.get('ACADEMIC_TOKEN', fallback: '');
-    
     // Simulasi loading jaringan selama 1 detik
     await Future.delayed(const Duration(seconds: 1));
 
