@@ -34,9 +34,11 @@ dependencies:
   # Tambahkan dua library ini:
   sqflite: ^2.3.0
   path: ^1.8.3
+  path_provider: ^2.0.14
   sqflite_common_ffi: ^2.2.0
 
   image_picker: ^1.0.7
+  shared_preferences: ^2.2.0
   geolocator: ^11.0.0
   geocoding: ^4.0.0 
   http: ^1.2.0

@@ -1,91 +1,115 @@
-import 'package:sqflite/sqflite.dart';
-import 'package:path/path.dart';
+import 'dart:convert';
+
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/assignment_model.dart';
+import '../models/profile_model.dart';
 
 class DBAacademic {
-  // Membuat instance singleton agar database hanya terbuka satu kali di aplikasi
   static final DBAacademic instance = DBAacademic._init();
-  static Database? _database;
 
   DBAacademic._init();
 
-  Future<Database> get database async {
-    if (_database != null) return _database!;
-    _database = await _initDB('academic.db');
-    return _database!;
-  }
-
-  Future<Database> _initDB(String filePath) async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
-
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-    );
-  }
-
-  // Membuat tabel saat database pertama kali dibuat
-  Future _createDB(Database db, int version) async {
-   await db.execute('''
-      CREATE TABLE attendance (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        studentName TEXT NOT NULL,
-        subject TEXT NOT NULL,
-        imagePath TEXT NOT NULL,
-        latitude REAL NOT NULL,
-        longitude REAL NOT NULL,
-        status TEXT NOT NULL,
-        time TEXT NOT NULL
-      )
-    ''');
-  }
-
-  // Fungsi untuk menyimpan Presensi ke SQLite
-  Future<int> insertAttendance(Map<String, dynamic> attendanceData) async {
-    final db = await instance.database;
-    return await db.insert('attendance', attendanceData);
-  }
-
-  // 1. Fungsi CREATE (Tambah data tugas)
-  Future<int> insertAssignment(AssignmentModel assignment) async {
-    final db = await instance.database;
-    return await db.insert('assignments', assignment.toMap());
-  }
-
-  // 2. Fungsi READ (Ambil semua data tugas)
   Future<List<AssignmentModel>> getAllAssignments() async {
-    final db = await instance.database;
-    final result = await db.query('assignments', orderBy: 'id DESC');
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('assignments');
+    if (raw == null || raw.isEmpty) return [];
 
-    return result.map((json) => AssignmentModel.fromMap(json)).toList();
+    final list = jsonDecode(raw) as List<dynamic>;
+    return list
+        .map((item) => AssignmentModel.fromMap(Map<String, dynamic>.from(item)))
+        .toList();
   }
 
-  // 3. Fungsi UPDATE (Ubah data tugas jika diperlukan)
+  Future<int> insertAssignment(AssignmentModel assignment) async {
+    final prefs = await SharedPreferences.getInstance();
+    final assignments = await getAllAssignments();
+    final id = assignment.id ?? DateTime.now().millisecondsSinceEpoch;
+
+    final entry = AssignmentModel(
+      id: id,
+      title: assignment.title,
+      subject: assignment.subject,
+      description: assignment.description,
+      dueDate: assignment.dueDate,
+    );
+
+    assignments.insert(0, entry);
+    await prefs.setString(
+      'assignments',
+      jsonEncode(assignments.map((item) => item.toMap()).toList()),
+    );
+    return id;
+  }
+
   Future<int> updateAssignment(AssignmentModel assignment) async {
-    final db = await instance.database;
-    return await db.update(
+    final prefs = await SharedPreferences.getInstance();
+    final assignments = await getAllAssignments();
+    final index = assignments.indexWhere((item) => item.id == assignment.id);
+    if (index == -1) return 0;
+
+    assignments[index] = assignment;
+    await prefs.setString(
       'assignments',
-      assignment.toMap(),
-      where: 'id = ?',
-      whereArgs: [assignment.id],
+      jsonEncode(assignments.map((item) => item.toMap()).toList()),
     );
+    return 1;
   }
 
-  // 4. Fungsi DELETE (Hapus data tugas)
   Future<int> deleteAssignment(int id) async {
-    final db = await instance.database;
-    return await db.delete(
+    final prefs = await SharedPreferences.getInstance();
+    final assignments = await getAllAssignments();
+    final filtered = assignments.where((item) => item.id != id).toList();
+    await prefs.setString(
       'assignments',
-      where: 'id = ?',
-      whereArgs: [id],
+      jsonEncode(filtered.map((item) => item.toMap()).toList()),
     );
+    return assignments.length - filtered.length;
   }
 
-  // Menutup database jika aplikasi ditutup
-  Future close() async {
-    final db = await instance.database;
-    db.close();
+  Future<int> saveProfile(ProfileModel profile) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('profile', jsonEncode(profile.toMap()));
+    return profile.id ?? 1;
+  }
+
+  Future<ProfileModel?> getProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('profile');
+    if (raw == null || raw.isEmpty) return null;
+    return ProfileModel.fromMap(jsonDecode(raw) as Map<String, dynamic>);
+  }
+// --- KODE BARU UNTUK ABSENSI (ATTENDANCE) ---
+
+  // Fungsi untuk mengambil semua data absensi yang tersimpan
+  Future<List<dynamic>> getAllAttendance() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('attendance');
+    if (raw == null || raw.isEmpty) return [];
+
+    final list = jsonDecode(raw) as List<dynamic>;
+    return list;
+    // Catatan: Jika Anda sudah punya AttendanceModel, ubah baris di atas menjadi:
+    // return list.map((item) => AttendanceModel.fromMap(Map<String, dynamic>.from(item))).toList();
+  }
+
+  // Fungsi insertAttendance yang dicari oleh file attedance_screen.dart Anda
+  Future<int> insertAttendance(Map<String, dynamic> attendanceData) async {
+    final prefs = await SharedPreferences.getInstance();
+    final attendanceList = await getAllAttendance();
+
+    // Buat ID unik berdasarkan waktu saat ini jika belum ada ID-nya
+    final id = attendanceData['id'] ?? DateTime.now().millisecondsSinceEpoch;
+    attendanceData['id'] = id;
+
+    // Masukkan data baru ke baris paling atas
+    attendanceList.insert(0, attendanceData);
+
+    // Simpan kembali list yang baru ke SharedPreferences
+    await prefs.setString(
+      'attendance',
+      jsonEncode(attendanceList),
+    );
+
+    return id;
   }
 }

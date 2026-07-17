@@ -4,6 +4,8 @@ import '../data/models/assignment_model.dart';
 import 'add_assignment_screen.dart';
 import 'attedance_screen.dart';
 import '../views/announcement_screen.dart';
+import 'login_screen.dart';
+import 'profile_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -51,10 +53,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: Colors.blue.shade700,
         actions: [
           IconButton(
+            icon: const Icon(Icons.person, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.logout, color: Colors.white),
             onPressed: () {
-              // Navigasi kembali ke login (menghapus semua route)
-              Navigator.pushReplacementNamed(context, '/');
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
+              );
             },
           ),
         ],
@@ -137,12 +150,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'Rest API Info',
                     color: Colors.orange,
                     onTap: () {
-                     Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const AnnouncementScreen()),
-    );
-  },
-),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AnnouncementScreen()),
+                      );
+                    },
+                ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildMenuCard(
+                    icon: Icons.person,
+                    title: 'Profil',
+                    subtitle: 'Data dan Foto',
+                    color: Colors.purple,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const ProfileScreen()),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
